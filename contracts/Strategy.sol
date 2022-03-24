@@ -15,26 +15,22 @@ import {
     IERC20,
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
-import {
-    ISwap
-} from "../interfaces/synapse/ISwap.sol";
-import {
-    IMasterChef
-} from "../interfaces/synapse/IMasterChef.sol";
-import {
-    IUniswapV2Router02
-} from "../interfaces/solidly/IUniswapV2Router02.sol";
+import {ISwap} from "../interfaces/synapse/ISwap.sol";
+import {IMasterChef} from "../interfaces/synapse/IMasterChef.sol";
+import {IUniswapV2Router02} from "../interfaces/solidly/IUniswapV2Router02.sol";
 
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
     using SafeMath for uint256;
 
-
     // tokens
-    IERC20 internal constant USDT = IERC20(0x049d68029688eAbF473097a2fC38ef61633A3C7A);
-    IERC20 internal constant nUSD = IERC20(0xED2a7edd7413021d440b09D654f3b87712abAB66);
-    IERC20 internal constant SYN = IERC20(0xE55e19Fb4F2D85af758950957714292DAC1e25B2);
+    IERC20 internal constant USDT =
+        IERC20(0x049d68029688eAbF473097a2fC38ef61633A3C7A);
+    IERC20 internal constant nUSD =
+        IERC20(0xED2a7edd7413021d440b09D654f3b87712abAB66);
+    IERC20 internal constant SYN =
+        IERC20(0xE55e19Fb4F2D85af758950957714292DAC1e25B2);
 
     // lp tokens
     IERC20 internal immutable syn3PoolLP;
@@ -50,7 +46,6 @@ contract Strategy is BaseStrategy {
 
     uint256 internal immutable pid; // Staking contract Pool ID
     uint8 internal immutable syn3PoolUSDCTokenIndex; // Index of USDT in Synapse Fantom 3 Pool
-
 
     constructor(
         address _vault,
@@ -80,9 +75,11 @@ contract Strategy is BaseStrategy {
     }
 
     function estimatedTotalAssets() public view override returns (uint256) {
-
         // Incase we aren't able to withdraw our deposit all in `want`, we might have other types of stable coin tokens
-        return nusdBalance().add(usdtBalance()).add(wantBalance()).add(synToWantBalance());
+        return
+            nusdBalance().add(usdtBalance()).add(wantBalance()).add(
+                synToWantBalance()
+            );
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -111,7 +108,6 @@ contract Strategy is BaseStrategy {
             _loss = _vaultDebt.sub(_totalAssets);
         }
 
-
         (uint256 _amountFreed, uint256 _liquidationLoss) =
             liquidatePosition(_debtOutstanding.add(_profit));
 
@@ -126,7 +122,6 @@ contract Strategy is BaseStrategy {
             _profit = _profit.sub(_loss);
             _loss = 0;
         }
-
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -150,9 +145,7 @@ contract Strategy is BaseStrategy {
 
         uint256 _liquidWant = wantBalance();
 
-
         _amountNeeded = Math.min(_amountNeeded, estimatedTotalAssets()); // Otherwise we can end up declaring a liquidation loss when _amountNeeded is more than we own
-
 
         if (_liquidWant < _amountNeeded) {
             _unstakeLPTokens(stakedLPBalance());
@@ -168,10 +161,7 @@ contract Strategy is BaseStrategy {
                 _addliquidity(_postWithdrawWant.sub(_amountNeeded));
 
                 //Stake the LP tokens
-                synStakingMC.deposit(
-                    pid,
-                    unstakedLPBalance()
-                );
+                synStakingMC.deposit(pid, unstakedLPBalance());
             }
 
             _liquidWant = wantBalance();
@@ -203,10 +193,12 @@ contract Strategy is BaseStrategy {
                 minAmounts[0] = 0; // nUSD
                 minAmounts[1] = 0; // USDC
                 minAmounts[2] = 0; // fUSDT
-                syn3PoolSwap.removeLiquidity(_lpTokenBalance, minAmounts, block.timestamp);
-
+                syn3PoolSwap.removeLiquidity(
+                    _lpTokenBalance,
+                    minAmounts,
+                    block.timestamp
+                );
             }
-
         }
 
         return wantBalance();
@@ -267,8 +259,8 @@ contract Strategy is BaseStrategy {
         virtual
         override
         returns (uint256)
-    {
-    }
+    {}
+
     // ----------------- SUPPORT FUNCTIONS ----------
 
     /**
@@ -278,13 +270,19 @@ contract Strategy is BaseStrategy {
      *  Total amount to sell in wei
      **/
     function _sellSynToWant(uint256 _amount) internal {
-        IUniswapV2Router02.route[] memory routes = new IUniswapV2Router02.route[](1);
+        IUniswapV2Router02.route[] memory routes =
+            new IUniswapV2Router02.route[](1);
         routes[0].from = address(SYN);
         routes[0].to = address(want);
         routes[0].stable = false;
 
         // Make sure we have enough allowance to do the swap
-        address pair = solidlyRouter.pairFor(routes[0].from, routes[0].to, routes[0].stable);
+        address pair =
+            solidlyRouter.pairFor(
+                routes[0].from,
+                routes[0].to,
+                routes[0].stable
+            );
         _checkAllowance(pair, address(SYN), _amount);
 
         solidlyRouter.swapExactTokensForTokens(
@@ -299,7 +297,6 @@ contract Strategy is BaseStrategy {
     function _addliquidity(uint256 _amount) internal {
         _checkAllowance(address(syn3PoolSwap), address(want), _amount);
 
-
         uint256[] memory liquidityToAdd = new uint256[](3);
         liquidityToAdd[0] = 0; // nUSD
         liquidityToAdd[1] = _amount; // USDC
@@ -307,17 +304,13 @@ contract Strategy is BaseStrategy {
 
         syn3PoolSwap.addLiquidity(
             liquidityToAdd,
-            0, //todo: should be specify a minimum amount here? Could be some loss because of inbalance, 
+            0, //todo: should be specify a minimum amount here? Could be some loss because of inbalance,
             block.timestamp
         );
     }
 
     function _unstakeLPTokens(uint256 _amount) internal {
-        synStakingMC.withdraw(
-            pid,
-            _amount,
-            address(this)
-        );
+        synStakingMC.withdraw(pid, _amount, address(this));
     }
 
     function _withdrawLiquidity(uint256 _lpAmount) internal {
@@ -337,12 +330,9 @@ contract Strategy is BaseStrategy {
      *  Total amount includes claimed and unclaimed SYN tokens
      * @return The amount in `want` of `SYN` converted to `want`
      **/
-    function synToWantBalance()
-        public
-        view
-        returns (uint256) 
-    {
-        IUniswapV2Router02.route[] memory routes = new IUniswapV2Router02.route[](1);
+    function synToWantBalance() public view returns (uint256) {
+        IUniswapV2Router02.route[] memory routes =
+            new IUniswapV2Router02.route[](1);
         routes[0].from = address(SYN);
         routes[0].to = address(want);
         routes[0].stable = false;
@@ -355,11 +345,7 @@ contract Strategy is BaseStrategy {
      *  Gets the total amount of staked LP token for the stable swap 3 pool
      * @return The amount of `nUSD-LP` that have been staked
      **/
-    function stakedLPBalance()
-        public
-        view
-        returns (uint256)
-    {
+    function stakedLPBalance() public view returns (uint256) {
         (uint256 stakedInMasterchef, ) =
             synStakingMC.userInfo(pid, address(this));
         return stakedInMasterchef;
@@ -370,11 +356,7 @@ contract Strategy is BaseStrategy {
      *  The total amount of SYN that hasn't been claimed yet
      * @return The amount in `SYN` that hasn't been claimed yet
      **/
-    function unclaimedSynBalance()
-        public
-        view
-        returns (uint256)
-    {
+    function unclaimedSynBalance() public view returns (uint256) {
         (uint256 stakedInMasterchef, uint256 unclaimedRewards) =
             synStakingMC.userInfo(pid, address(this));
         return unclaimedRewards;
@@ -385,11 +367,7 @@ contract Strategy is BaseStrategy {
      *  The total amount of SYN that has been claimed
      * @return The amount in `SYN` that has been claimed
      **/
-    function claimedSynBalance()
-        public
-        view
-        returns (uint256)
-    {
+    function claimedSynBalance() public view returns (uint256) {
         return SYN.balanceOf(address(this));
     }
 
@@ -400,11 +378,7 @@ contract Strategy is BaseStrategy {
      *  Total amount includes claimed and unclaimed SYN tokens
      * @return The amount in `SYN` of staked and unstaked `SYN` tokens
      **/
-    function totalSynBalance()
-        public
-        view
-        returns (uint256) 
-    {
+    function totalSynBalance() public view returns (uint256) {
         return claimedSynBalance().add(unclaimedSynBalance());
     }
 
@@ -413,36 +387,19 @@ contract Strategy is BaseStrategy {
      *  Total balance of LP tokens that haven't been staked yet
      * @return The amount in `nUSD-LP` that haven't been staked yet
      **/
-    function unstakedLPBalance()
-        public
-        view
-        returns (uint256) 
-    {
+    function unstakedLPBalance() public view returns (uint256) {
         return syn3PoolLP.balanceOf(address(this));
     }
 
-    function wantBalance() 
-        public
-        view
-        returns (uint256)
-    {
+    function wantBalance() public view returns (uint256) {
         return want.balanceOf(address(this));
     }
 
-
-    function usdtBalance() 
-        public
-        view
-        returns (uint256)
-    {
+    function usdtBalance() public view returns (uint256) {
         return USDT.balanceOf(address(this));
     }
 
-    function nusdBalance() 
-        public
-        view
-        returns (uint256)
-    {
+    function nusdBalance() public view returns (uint256) {
         return nUSD.balanceOf(address(this));
     }
 
@@ -456,5 +413,4 @@ contract Strategy is BaseStrategy {
             IERC20(_token).safeApprove(_contract, _amount);
         }
     }
-
 }
